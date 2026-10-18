@@ -1,0 +1,38 @@
+const { chromium } = require('C:/Users/ren11/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright');
+const assert = require('node:assert/strict'); const fs = require('node:fs'); const path = require('node:path');
+(async () => { const browser=await chromium.launch({headless:true}); try { const page=await browser.newPage({viewport:{width:1440,height:1050}}); page.setDefaultTimeout(5000); const errors=[]; page.on('pageerror', e=>errors.push(e.message));
+await page.route('http://nezui.local/**',async route=>{const pathname=new URL(route.request().url()).pathname;const file=path.join(process.cwd(),'apps/playground/dist',pathname==='/'?'index.html':pathname);await route.fulfill({body:fs.readFileSync(file),contentType:file.endsWith('.js')?'application/javascript':file.endsWith('.css')?'text/css':'text/html'});}); await page.goto('http://nezui.local/');
+const nav=page.getByRole('navigation',{name:'コンポーネント',exact:true});const select=async name=>{await nav.getByRole('button',{name:new RegExp('^'+name+' \\d+$')}).click();};
+const names=['HarnessWorkspace','AIComposer','FileAttachment','VoiceInput','ModelPicker','CommandPalette','ChatSidebar','ConversationToolbar','ChatMessage','RunStatus','ToolRun','ApprovalCard','ArtifactCard','ContextUsage','HarnessSettings','HarnessIcons'];
+for(const theme of ['dark','light']) { await page.getByLabel('テーマ',{exact:true}).selectOption(theme);for(const name of names){await select(name);for(const width of [320,768,1440]){await page.setViewportSize({width,height:1050}); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`${name} overflow ${width} ${theme}`);}}}
+await page.getByLabel('テーマ',{exact:true}).selectOption('dark');await select('AIComposer');const input=page.getByRole('combobox',{name:'メッセージ'});
+assert.equal(await page.getByRole('button',{name:'送信',exact:true}).isDisabled(),true);
+await input.fill('/'); await page.getByRole('option',{name:/コードレビュー/}).waitFor();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter'); assert.equal(await input.inputValue(),'/design ');
+await input.fill('@');await page.getByRole('option',{name:/design-tokens/}).waitFor();await page.keyboard.press('Enter');assert.equal(await input.inputValue(),'@design-tokens.json ');
+await input.fill('変換中'); await input.dispatchEvent('keydown',{key:'Enter',code:'Enter',isComposing:true});assert.equal(await input.inputValue(),'変換中');
+await input.press('Shift+Enter');assert.match(await input.inputValue(),/\n/);
+await page.locator('input[type=file]').setInputFiles({name:'notes.txt',mimeType:'text/plain',buffer:Buffer.from('local sample')});await page.getByRole('button',{name:'notes.txtを取り除く'}).waitFor();await page.getByRole('button',{name:'notes.txtを取り除く'}).click();assert.equal(await page.locator('.nezui-attachments li').count(),0);
+await input.fill('/');await input.press('Shift+Enter');assert.equal(await input.inputValue(),'/\n');
+await input.fill('/no-such-command');await input.press('Enter');assert.equal(await input.inputValue(),'/no-such-command');
+await input.fill('');
+await input.evaluate(el=>{const transfer=new DataTransfer();transfer.items.add(new File(['paste'],'pasted.txt',{type:'text/plain'}));el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:transfer}));});
+await page.getByRole('button',{name:'pasted.txtを取り除く'}).click();
+await page.locator('.nezui-composer').evaluate(el=>{const transfer=new DataTransfer();transfer.items.add(new File(['drop'],'dropped.txt',{type:'text/plain'}));el.dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:transfer}));});
+await page.getByRole('button',{name:'dropped.txtを取り除く'}).click();
+await page.locator('input[type=file]').setInputFiles(Array.from({length:11},(_,i)=>({name:`file-${i}.txt`,mimeType:'text/plain',buffer:Buffer.from('file')})));
+assert.equal(await page.locator('.nezui-attachments li').count(),10);assert.match(await page.getByRole('alert').innerText(),/10件まで/);
+for(let i=0;i<10;i++)await page.getByRole('button',{name:`file-${i}.txtを取り除く`}).click();
+await input.fill('送信テスト');await page.getByRole('button',{name:'送信',exact:true}).click();await page.getByRole('button',{name:'生成を停止'}).click();assert.match(await page.locator('.nezui-run-status').innerText(),/停止済み/);
+await input.fill('/');await page.screenshot({path:'artifacts/nezui-ai-composer.png',fullPage:true});await page.keyboard.press('Escape');assert.equal(await input.getAttribute('aria-expanded'),'false');
+await select('ModelPicker');await page.getByRole('button',{name:'モデル Nez · Balanced'}).click();await page.keyboard.press('ArrowDown');await page.keyboard.press('Enter');assert.match(await page.locator('.nezui-harness-demo').innerText(),/選択中: Nez · Fast/);
+await select('CommandPalette');await page.getByRole('button',{name:'コマンドを開く'}).click();await page.getByRole('combobox',{name:'コマンドを検索'}).fill('README');await page.keyboard.press('Enter');assert.match(await page.locator('.nezui-harness-notice').innerText(),/README.mdを選択/);
+await select('HarnessWorkspace');await page.getByRole('button',{name:'チャットを追加',exact:true}).click();await page.getByRole('combobox',{name:'メッセージ'}).fill('会話のテスト');await page.getByRole('button',{name:'送信',exact:true}).click();await page.waitForTimeout(1300);assert.match(await page.locator('.nezui-harness-messages').innerText(),/これはローカルUIデモの応答/);
+await page.getByRole('button',{name:'チャット設定',exact:true}).click();await page.getByLabel('推論量',{exact:true}).selectOption('high');await page.getByRole('button',{name:'完了',exact:true}).click();await page.getByRole('button',{name:'チャット設定',exact:true}).click();assert.equal(await page.getByLabel('推論量',{exact:true}).inputValue(),'high');await page.keyboard.press('Escape');await page.screenshot({path:'artifacts/nezui-harness-workspace.png',fullPage:true});
+await select('ChatSidebar');await page.getByRole('textbox',{name:'チャットを検索'}).fill('レビュー');assert.equal(await page.getByRole('navigation',{name:'会話一覧'}).locator('.nezui-chat-item').count(),1);
+await select('ApprovalCard');await page.getByRole('button',{name:'今回のみ許可'}).click();assert.match(await page.locator('.nezui-harness-notice').innerText(),/今回のみ許可しました/);await page.getByRole('button',{name:'許可しない'}).click();assert.match(await page.locator('.nezui-harness-notice').innerText(),/拒否/);
+await select('ArtifactCard');await page.getByRole('button',{name:'design-notes.md Markdown · 仕様メモ'}).click();assert.match(await page.locator('.nezui-artifact-source').textContent(),/Design notes/);await page.keyboard.press('Escape');const download=page.waitForEvent('download');await page.getByRole('button',{name:'design-notes.mdをダウンロード'}).click();assert.equal((await download).suggestedFilename(),'design-notes.md');
+await select('HarnessIcons');await page.screenshot({path:'artifacts/nezui-harness-icons.png',fullPage:true});
+await select('AIComposer');await page.setViewportSize({width:390,height:844});await page.screenshot({path:'artifacts/nezui-composer-mobile.png',fullPage:true});
+assert.deepEqual(errors,[]);console.log(JSON.stringify({harnessEntries:names.length,layoutChecks:96,checks:['slash and mention insertion','IME Enter','Shift+Enter','file add/remove','send/stop','model keyboard selection','command search','chat creation and demo response','settings retention','chat search','approval/rejection','artifact download'],pageErrors:errors}));
+}finally{await browser.close();}})();
+

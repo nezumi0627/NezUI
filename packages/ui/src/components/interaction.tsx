@@ -1,0 +1,20 @@
+import { useId, useState, useRef, type HTMLAttributes, type ReactNode, type CSSProperties } from 'react';
+export interface TabItem { value: string; label: string; content: ReactNode; disabled?: boolean }
+export interface TabsProps extends Omit<HTMLAttributes<HTMLDivElement>, 'onChange'> { items: TabItem[]; value?: string; defaultValue?: string; onValueChange?: (value: string) => void; label: string }
+export function Tabs({ items, value, defaultValue, onValueChange, label, className = '', ...props }: TabsProps) {
+ const id = useId(); const [internal, setInternal] = useState(defaultValue ?? items.find(i => !i.disabled)?.value); const active = value ?? internal; const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+ const choose = (next: string) => { setInternal(next); onValueChange?.(next); };
+ return <div {...props} className={`nezui-tabs ${className}`}><div role="tablist" aria-label={label} style={{ "--nezui-tab-count": Math.max(1, items.length), "--nezui-tab-index": Math.max(0, items.findIndex(item => item.value === active)) } as CSSProperties}><i className="nezui-tab-indicator" aria-hidden="true" />{items.map((item, index) => <button type="button" key={item.value} ref={node => { buttons.current[index] = node; }} role="tab" id={`${id}-tab-${index}`} aria-controls={`${id}-panel-${index}`} aria-selected={active === item.value} tabIndex={active === item.value ? 0 : -1} disabled={item.disabled} onClick={() => choose(item.value)} onKeyDown={event => { if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return; event.preventDefault(); const enabled = items.map((v, i) => v.disabled ? -1 : i).filter(i => i >= 0); const position = enabled.indexOf(index); const next = event.key === 'Home' ? enabled[0] : event.key === 'End' ? enabled[enabled.length - 1] : enabled[(position + (event.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length]; if (next !== undefined) { choose(items[next].value); buttons.current[next]?.focus(); } }}>{item.label}</button>)}</div>{items.map((item, index) => <div key={item.value} role="tabpanel" id={`${id}-panel-${index}`} aria-labelledby={`${id}-tab-${index}`} hidden={active !== item.value} tabIndex={0}>{item.content}</div>)}</div>;
+}
+export interface SegmentedControlProps extends Omit<HTMLAttributes<HTMLFieldSetElement>, 'onChange'> { label: string; options: { value: string; label: string; disabled?: boolean }[]; value?: string; defaultValue?: string; onValueChange?: (value: string) => void; disabled?: boolean }
+export function SegmentedControl({ label, options, value, defaultValue, onValueChange, disabled, className = '', ...props }: SegmentedControlProps) {
+ const name = useId(); const [internal, setInternal] = useState(defaultValue ?? options[0]?.value); const selected = value ?? internal;
+ return <fieldset {...props} disabled={disabled} className={`nezui-segmented ${className}`}><legend>{label}</legend><div style={{ "--nezui-segment-count": Math.max(1, options.length), "--nezui-segment-index": Math.max(0, options.findIndex(option => option.value === selected)) } as CSSProperties}><i className="nezui-segmented-indicator" aria-hidden="true" />{options.map(option => <label key={option.value}><input type="radio" name={name} value={option.value} checked={selected === option.value} disabled={option.disabled} onChange={() => { setInternal(option.value); onValueChange?.(option.value); }} /><span>{option.label}</span></label>)}</div></fieldset>;
+}
+export type MotionPreset = 'fade' | 'rise' | 'scale' | 'slide';
+export interface MotionProps extends HTMLAttributes<HTMLDivElement> { show: boolean; preset?: MotionPreset; duration?: number; reduced?: boolean }
+export function Motion({ show, preset = 'fade', duration = 160, reduced, children, className = '', style, ...props }: MotionProps) {
+ return <div {...props} className={`nezui-motion nezui-motion-${preset} ${className}`} data-show={show} data-reduced={reduced || undefined} inert={!show} aria-hidden={!show} style={{ '--nezui-motion-duration': `${Math.max(0, duration)}ms`, ...style } as CSSProperties}>{children}</div>;
+}
+
+
