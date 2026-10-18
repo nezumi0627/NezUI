@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "pnpm --filter @nezui/playground dev",
     "build": "pnpm --filter @nezui/ui build && pnpm --filter @nezui/playground build",
+    "build:pages": "pnpm --filter @nezui/ui build && pnpm --filter @nezui/playground build:pages",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

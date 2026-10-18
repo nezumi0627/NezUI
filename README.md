@@ -2,6 +2,8 @@
 
 React 19 / TypeScript / Vanilla CSSのUIコンポーネント集。
 
+**コンポーネントカタログ:** <https://nezumi0627.github.io/NezUI/>
+
 ## 起動
 
 ```sh
